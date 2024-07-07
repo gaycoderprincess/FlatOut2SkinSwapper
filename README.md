@@ -1,4 +1,4 @@
-# FlatOut 2 Skin Changer
+# FlatOut 2 Skin Swapper
 
 Plugin to load car textures from loose files in FlatOut 2
 
