@@ -2,6 +2,9 @@
 
 Plugin to load car textures from loose files in FlatOut 2
 
+![ingame preview](https://i.imgur.com/wPFTYnE.png)
+![filesystem preview](https://i.imgur.com/YUdDtLs.png)
+
 ## Installation
 
 - Make sure you have v1.2 of the game, as this is the only version this plugin is compatible with. (exe size of 2990080 bytes)
