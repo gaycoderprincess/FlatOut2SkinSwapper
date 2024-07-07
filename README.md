@@ -8,7 +8,7 @@ Plugin to load car textures from loose files in FlatOut 2
 ## Installation
 
 - Make sure you have v1.2 of the game, as this is the only version this plugin is compatible with. (exe size of 2990080 bytes)
-- Plop the files into your game folder, edit `FlatOut2SkinChanger_gcp.toml` to change the options to your liking.
+- Plop the files into your game folder, edit `FlatOut2SkinSwapper_gcp.toml` to change the options to your liking.
 - Place car textures into the same folder structure as you would if the game was unpacked. (You can use .dds, .tga and .png files)
 - Enjoy, nya~ :3
 
