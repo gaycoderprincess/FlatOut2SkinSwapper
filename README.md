@@ -12,10 +12,6 @@ Plugin to load car textures from loose files in FlatOut 2
 - Place car textures into the same folder structure as you would if the game was unpacked. (You can use .dds, .tga and .png files)
 - Enjoy, nya~ :3
 
-## Known problems
-
-- .dds files from the vanilla game seem to not load properly due to them being different from normal .dds files in some way
-
 ## Building
 
 Building is done on an Arch Linux system with CLion and vcpkg being used for the build process. 
