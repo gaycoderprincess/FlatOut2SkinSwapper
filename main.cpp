@@ -11,7 +11,7 @@
 #include "game.h"
 
 void WriteLog(const std::string& str) {
-	static auto file = std::ofstream("FlatOut2SkinChanger_gcp.log");
+	static auto file = std::ofstream("FlatOut2SkinSwapper_gcp.log");
 
 	file << str;
 	file << "\n";
@@ -195,7 +195,7 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 				return TRUE;
 			}
 
-			auto config = toml::parse_file("FlatOut2SkinChanger_gcp.toml");
+			auto config = toml::parse_file("FlatOut2SkinSwapper_gcp.toml");
 			bReplaceAllCarsTextures = config["main"]["replace_all_cars"].value_or(false);
 			nRefreshKey = config["main"]["reload_key"].value_or(VK_INSERT);
 
