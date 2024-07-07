@@ -18,16 +18,48 @@ void WriteLog(const std::string& str) {
 	file.flush();
 }
 
+PDIRECT3DTEXTURE9 LoadTextureWithDDSCheck(const char* filename) {
+	std::ifstream fin(filename, std::ios::in | std::ios::binary );
+	if (!fin.is_open()) return nullptr;
+
+	fin.seekg(0, std::ios::end);
+
+	size_t size = fin.tellg();
+	if (size <= 0x4C) return nullptr;
+
+	auto data = new char[size];
+	fin.seekg(0, std::ios::beg);
+	fin.read(data, size);
+
+	if (data[0] != 'D' || data[1] != 'D' || data[2] != 'S') {
+		delete[] data;
+		return nullptr;
+	}
+
+	if (data[0x4C] == 0x18) {
+		data[0x4C] = 0x20;
+		WriteLog("Loading " + (std::string)filename + " with DDS pixelformat hack");
+	}
+
+	PDIRECT3DTEXTURE9 texture;
+	auto hr = D3DXCreateTextureFromFileInMemory(g_pd3dDevice, data, size, &texture);
+	delete[] data;
+	if (hr != S_OK) {
+		WriteLog("Failed to load " + (std::string)filename);
+		return nullptr;
+	}
+	return texture;
+}
+
 // Simple helper function to load an image into a DX9 texture with common settings
 PDIRECT3DTEXTURE9 LoadTexture(const char* filename) {
 	if (!std::filesystem::exists(filename)) return nullptr;
 
 	// Load texture from disk
 	PDIRECT3DTEXTURE9 texture;
-	HRESULT hr = D3DXCreateTextureFromFileA(g_pd3dDevice, filename, &texture);
+	auto hr = D3DXCreateTextureFromFileA(g_pd3dDevice, filename, &texture);
 	if (hr != S_OK) {
-		WriteLog("Failed to load " + (std::string)filename);
-		return nullptr;
+		return LoadTextureWithDDSCheck(filename);
 	}
 	return texture;
 }
