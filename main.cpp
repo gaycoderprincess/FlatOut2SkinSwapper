@@ -65,6 +65,7 @@ PDIRECT3DTEXTURE9 LoadTexture(const char* filename) {
 }
 
 bool bReplaceAllCarsTextures = false;
+bool bUseIngameTexturesForMenuCars = false;
 int nRefreshKey = VK_INSERT;
 
 Player* pLocalPlayer = nullptr;
@@ -135,12 +136,16 @@ IDirect3DTexture9* TryLoadCustomTexture(std::string path) {
 	return nullptr;
 }
 
-void ReplaceTextureWithCustom(DevTexture* pTexture) {
-	if (auto texture = TryLoadCustomTexture(pTexture->sPath)) {
+void ReplaceTextureWithCustom(DevTexture* pTexture, const char* path) {
+	if (auto texture = TryLoadCustomTexture(path)) {
 		if (pTexture->pD3DTexture) pTexture->pD3DTexture->Release();
 		pTexture->pD3DTexture = texture;
-		WriteLog("Replaced texture " + (std::string)pTexture->sPath + " with loose files");
+		WriteLog("Replaced texture " + (std::string)path + " with loose files");
 	}
+}
+
+void ReplaceTextureWithCustom(DevTexture* pTexture) {
+	return ReplaceTextureWithCustom(pTexture, pTexture->sPath);
 }
 
 void SetCarTexturesToCustom(Car* car) {
@@ -149,7 +154,7 @@ void SetCarTexturesToCustom(Car* car) {
 	int i = 0;
 	while (&car->pTextureNodes[i] != car->pTextureNodesEnd) {
 		if (auto node = car->pTextureNodes[i]) {
-			if (auto texture = node->m_pTexture) {
+			if (auto texture = node->pTexture) {
 				ReplaceTextureWithCustom(texture);
 			}
 		}
@@ -173,8 +178,24 @@ bool IsKeyJustPressed(int key) {
 	return bKeyPressed && !bKeyPressedLast;
 }
 
+struct tMenuCarData {
+	int carId;
+	int skinId;
+	DevTexture* pTexture;
+};
+std::vector<tMenuCarData> aMenuCarSkins;
+int nLastMenuCarId = -1;
+int nLastMenuCarSkinId = -1;
+
+void OnExitMenu() {
+	aMenuCarSkins.clear();
+	nLastMenuCarId = -1;
+	nLastMenuCarSkinId = -1;
+}
+
 auto RenderRace = (void(__stdcall*)(void*, int))0x479200;
 void __stdcall RenderRaceHooked(void* a1, int a2) {
+	OnExitMenu();
 	if (pLocalPlayer && !aPlayers.empty() && (bFirstFrameToReplaceTextures || IsKeyJustPressed(nRefreshKey))) {
 		if (bReplaceAllCarsTextures) {
 			for (auto& player : aPlayers) {
@@ -187,6 +208,65 @@ void __stdcall RenderRaceHooked(void* a1, int a2) {
 	RenderRace(a1, a2);
 }
 
+std::string GenerateCarSkinPath(int car, int skin) {
+	std::string path = bUseIngameTexturesForMenuCars ? "data/cars/car_" : "data/menu/cars/car_";
+	path += std::to_string(car);
+	path += "/skin";
+	path += std::to_string(skin);
+	path += ".tga";
+	return path;
+}
+
+DevTexture* GetTextureForMenuCarSkin(int car, int skin) {
+	for (auto& data : aMenuCarSkins) {
+		if (car == data.carId && skin == data.skinId) {
+			return data.pTexture;
+		}
+	}
+	return nullptr;
+}
+
+auto RenderMenu = (void(__stdcall*)(void*, int))0x4A8AE0;
+void __stdcall RenderMenuHooked(MenuInterface* a1, int a2) {
+	if (a1->pMenuCar && a1->pMenuCar->pSkin && (nLastMenuCarId != a1->pMenuCar->nCarId || nLastMenuCarSkinId != a1->pMenuCar->nSkinId || IsKeyJustPressed(nRefreshKey))) {
+		if (auto textureToWrite = GetTextureForMenuCarSkin(a1->pMenuCar->nCarId, a1->pMenuCar->nSkinId)) {
+			ReplaceTextureWithCustom(textureToWrite, GenerateCarSkinPath(a1->pMenuCar->nCarId, a1->pMenuCar->nSkinId).c_str());
+			nLastMenuCarId = a1->pMenuCar->nCarId;
+			nLastMenuCarSkinId = a1->pMenuCar->nSkinId;
+		}
+	}
+	RenderMenu(a1, a2);
+}
+
+void __fastcall CollectMenuCarData(MenuCar* menuCar, DevTexture* pTexture) {
+	for (auto& data : aMenuCarSkins) {
+		if (menuCar->nCarId == data.carId && menuCar->nSkinId == data.skinId) {
+			data.pTexture = pTexture;
+			return;
+		}
+	}
+	aMenuCarSkins.push_back({menuCar->nCarId, menuCar->nSkinId, pTexture});
+	while (aMenuCarSkins.size() > 3) aMenuCarSkins.erase(aMenuCarSkins.begin());
+}
+
+uintptr_t LoadMenuCarSkinASM_jmp = 0x4A4C38;
+void __attribute__((naked)) LoadMenuCarSkinASM() {
+	__asm__ (
+		"pushad\n\t"
+		"mov ecx, esi\n\t"
+		"mov edx, eax\n\t"
+		"call %0\n\t"
+		"popad\n\t"
+
+		"mov [edi+0x24], eax\n\t"
+		"mov ecx, [esi+0x1E68]\n\t"
+		"mov eax, [esi+0x14]\n\t"
+		"jmp %1\n\t"
+			:
+			:  "i" (CollectMenuCarData), "m" (LoadMenuCarSkinASM_jmp)
+	);
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
@@ -197,11 +277,14 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 
 			auto config = toml::parse_file("FlatOut2SkinSwapper_gcp.toml");
 			bReplaceAllCarsTextures = config["main"]["replace_all_cars"].value_or(false);
+			bUseIngameTexturesForMenuCars = config["main"]["menucar_ingame_textures"].value_or(true);
 			nRefreshKey = config["main"]["reload_key"].value_or(VK_INSERT);
 
 			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x45DD25, &CollectLocalPlayerASM);
+			NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x4A4C2C, &LoadMenuCarSkinASM);
 			LoadGameTexture = (DevTexture*(__stdcall*)(int, const char*, int, int))NyaHookLib::PatchRelative(NyaHookLib::JMP, 0x430FFD, &LoadSkinTextureASM);
 			RenderRace = (void(__stdcall*)(void*, int))NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x45F781, &RenderRaceHooked);
+			RenderMenu = (void(__stdcall*)(void*, int))NyaHookLib::PatchRelative(NyaHookLib::CALL, 0x45F7A0, &RenderMenuHooked);
 		} break;
 		default:
 			break;

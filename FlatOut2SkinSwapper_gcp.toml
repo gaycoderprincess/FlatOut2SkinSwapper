@@ -3,4 +3,5 @@
 
 [main]
 replace_all_cars = true			# Set this to false if you only want your own car to use different skins
+menucar_ingame_textures = true		# Set this to false if you want menucars to load their skins from data/menu/cars
 refresh_key = 0x2D			# Key to reload all custom textures at runtime (Virtual key-code, Insert by default)
