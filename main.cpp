@@ -8,7 +8,8 @@
 #include "toml++/toml.hpp"
 #include "nya_commonhooklib.h"
 
-#include "game.h"
+#include "fo2.h"
+#include "../nya-common-fouc/fo2versioncheck.h"
 
 void WriteLog(const std::string& str) {
 	static auto file = std::ofstream("FlatOut2SkinSwapper_gcp.log");
@@ -42,7 +43,7 @@ PDIRECT3DTEXTURE9 LoadTextureWithDDSCheck(const char* filename) {
 	}
 
 	PDIRECT3DTEXTURE9 texture;
-	auto hr = D3DXCreateTextureFromFileInMemory(g_pd3dDevice, data, size, &texture);
+	auto hr = D3DXCreateTextureFromFileInMemory(DeviceD3d::pD3DDevice, data, size, &texture);
 	delete[] data;
 	if (hr != S_OK) {
 		WriteLog("Failed to load " + (std::string)filename);
@@ -57,7 +58,7 @@ PDIRECT3DTEXTURE9 LoadTexture(const char* filename) {
 
 	// Load texture from disk
 	PDIRECT3DTEXTURE9 texture;
-	auto hr = D3DXCreateTextureFromFileA(g_pd3dDevice, filename, &texture);
+	auto hr = D3DXCreateTextureFromFileA(DeviceD3d::pD3DDevice, filename, &texture);
 	if (hr != S_OK) {
 		return LoadTextureWithDDSCheck(filename);
 	}
@@ -270,10 +271,7 @@ void __attribute__((naked)) LoadMenuCarSkinASM() {
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, LPVOID) {
 	switch( fdwReason ) {
 		case DLL_PROCESS_ATTACH: {
-			if (NyaHookLib::GetEntryPoint() != 0x202638) {
-				MessageBoxA(nullptr, "Unsupported game version! Make sure you're using v1.2 (.exe size of 2990080 bytes)", "nya?!~", MB_ICONERROR);
-				return TRUE;
-			}
+			DoFlatOutVersionCheck(FO2Version::FO2_1_2);
 
 			auto config = toml::parse_file("FlatOut2SkinSwapper_gcp.toml");
 			bReplaceAllCarsTextures = config["main"]["replace_all_cars"].value_or(false);
